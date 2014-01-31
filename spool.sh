@@ -25,11 +25,16 @@ graph() {
     printf "$2" # no new line (print units after function call)
 }
 
-main() {
-    clear
+just_graph() {
+    DATA=`cat $TMP_DIR/$1 | tr '\n' ' '`
+    echo $DATA | spark
+    printf "$2" # no new line (print units after function call)
+}
 
+main() {
     JSON=`curl --silent https://mining.bitcoin.cz/accounts/profile/json/$API_KEY`
 
+    HASHRATE_TIME_ELAPSED=$HASHRATE_REFRESH_TIME
     mkdir $TMP_DIR # create data file directory
 
     # create data files
@@ -62,6 +67,7 @@ main() {
 
     while [[ 1 ]]; do
         JSON=`curl --silent https://mining.bitcoin.cz/accounts/profile/json/$API_KEY`
+        clear
 
         printf "###########\n#  SPool  #   [^C] to stop.\n###########\n"
 
@@ -70,10 +76,17 @@ main() {
             case $LINE in
                 # non-worker info
                 "hashrate"*) # total hashrate
-                    printf "hashrate: "
-                    HASHRATE=`echo $JSON | jq -r .$LINE`
-                    graph "hashrate" $HASHRATE
-                    printf " Mhash/s\n"
+                    if [[ $HASHRATE_TIME_ELAPSED == $HASHRATE_REFRESH_TIME ]]; then
+                        printf "hashrate: "
+                        HASHRATE=`echo $JSON | jq -r .$LINE`
+                        graph "hashrate" $HASHRATE
+                        printf " Mhash/s\n"
+                    else
+                        printf "hashrate: "
+                        HASHRATE=`echo $JSON | jq -r .$LINE`
+                        just_graph "hashrate" $HASHRATE
+                        printf " Mhash/s\n"
+                    fi
                 ;;
                 "username"|"rating"|"confirmed_nmc_reward"|"send_threshold"| \
                 "nmc_send_threshold"|"confirmed_reward"|"wallet"| \
@@ -106,10 +119,15 @@ main() {
                         WORKER=`echo $JSON | jq -r '.workers | keys['$i']'`
                         printf "$WORKER\n"
                         i=`expr $i + 1`
-
-                        if [[ "$LINE" = "worker_hashrate" ]]; then
+                        if [[ "$LINE" == "worker_hashrate" ]]; then
                             printf "hashrate: "
-                            graph "$WORKER-worker_hashrate" $ENTRY
+                            if [[ $HASHRATE_TIME_ELAPSED == $HASHRATE_REFRESH_TIME ]]; then 
+                                graph "$WORKER-worker_hashrate" $ENTRY
+                                HASHRATE_TIME_ELAPSED=0
+                            else
+                                HASHRATE=`echo $JSON | jq -r .$LINE`
+                                just_graph "$WORKER-worker_hashrate" $ENTRY
+                            fi
                             printf " Mhash/s\n"
                         else
                             printf "shares:   "
@@ -129,14 +147,15 @@ main() {
             esac
         done
         sleep $SLEEP_TIME
-        clear
+        HASHRATE_TIME_ELAPSED=`expr $HASHRATE_TIME_ELAPSED + $SLEEP_TIME`
     done
 }
 
 CONFIG_FILE="config"
 TMP_DIR="tmp" # data file directory
 API_KEY=`head -n 1 $CONFIG_FILE`
-SLEEP_TIME=5m # API refresh time
+HASHRATE_REFRESH_TIME=3600 # hashrate API refresh time (1hr)
+SLEEP_TIME=300 # API refresh time (5min)
 
 WIDTH=`tput cols`
 LABELS=10 # spaces before sparklines begin
