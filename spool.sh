@@ -2,7 +2,7 @@
 
 stop() {
     echo " Stopping."
-    rm -rf $TMP_DIR
+    rm -rf $TMP_DIR # remove data file directory
     exit 0
 }
 trap stop SIGINT
@@ -12,10 +12,12 @@ trap stop SIGINT
 # $2 = value (hashrate in Mhash/s or shares)
 graph() {
     echo $2 >> $TMP_DIR/$1 # append latest API response to file
+    
+    # if label and sparkline are wider than the terminal width
     if [[ `cat $TMP_DIR/$1 | wc -l | awk '{print $1}'` -gt `expr $WIDTH-$LABELS-1` ]]; then
         mv $TMP_DIR/$1 $TMP_DIR/$1-old
         touch $TMP_DIR/$1
-        sed '1d' $TMP_DIR/$1-old >> $TMP_DIR/$1 # ??
+        sed '1d' $TMP_DIR/$1-old >> $TMP_DIR/$1 # remove top line
         rm $TMP_DIR/$1-old
     fi
     DATA=`cat $TMP_DIR/$1 | tr '\n' ' '`
@@ -28,7 +30,9 @@ main() {
 
     JSON=`curl --silent https://mining.bitcoin.cz/accounts/profile/json/$API_KEY`
 
-    mkdir $TMP_DIR
+    mkdir $TMP_DIR # create data file directory
+
+    # create data files
     cat $CONFIG_FILE | while read -r LINE || [ -n "$LINE" ]; do
         if [[ "$LINE" != "" && "$LINE" != "$API_KEY" \
             && "$LINE" != "newline" ]]; then
@@ -37,19 +41,22 @@ main() {
             if [[ "$LINE" == "last_share" || "$LINE" == "score" \
                 || "$LINE" == "alive" || "$LINE" == "worker_hashrate" \
                 || "$LINE" == "worker_shares" ]]; then
-                DATA=`echo $JSON | jq -r '.workers' | jq -r .[].$LINE`
-                i=0
                 
+                # determine how many workers exist
+                DATA=`echo $JSON | jq -r '.workers' | jq -r .[].$LINE`
+                
+                # create a file for each worker
+                i=0
                 for ENTRY in $DATA; do
                     WORKER=`echo $JSON | jq -r '.workers | keys['$i']'`
                     touch "$TMP_DIR/$WORKER-$LINE"
                     i=`expr $i + 1`
                 done
+
             # touch non-worker data files
             else
                 touch $TMP_DIR/$LINE
             fi
-
         fi
     done
 
@@ -58,9 +65,10 @@ main() {
 
         printf "###########\n#  SPool  #   [^C] to stop.\n###########\n"
 
+        # read config file
         cat $CONFIG_FILE | while read -r LINE || [ -n "$LINE" ]; do
             case $LINE in
-                # general info
+                # non-worker info
                 "hashrate"*) # total hashrate
                     printf "hashrate: "
                     HASHRATE=`echo $JSON | jq -r .$LINE`
@@ -76,7 +84,7 @@ main() {
                 ;;
 
                 # worker info
-                "last_share"|"score"|"alive"*)
+                "last_share"|"score"|"alive"*) # general key/value
                     INFO=`echo $JSON | jq -r '.workers' | jq -r .[].$LINE`
                     printf "$LINE\n"
 
@@ -126,11 +134,17 @@ main() {
 }
 
 CONFIG_FILE="config"
-TMP_DIR="tmp"
+TMP_DIR="tmp" # data file directory
 API_KEY=`head -n 1 $CONFIG_FILE`
-SLEEP_TIME=5m
+SLEEP_TIME=5m # API refresh time
 
 WIDTH=`tput cols`
-LABELS=10
+LABELS=10 # spaces before sparklines begin
 
-main
+if [[ -e $CONFIG_FILE ]]; then
+    main
+else
+    echo "\033[31m$CONFIG_FILE does not exist.\033[0m"
+fi
+
+exit 0
