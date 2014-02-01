@@ -12,7 +12,7 @@ trap stop SIGINT
 # $2 = value (hashrate in Mhash/s or shares)
 graph() {
     echo $2 >> $TMP_DIR/$1 # append latest API response to file
-    
+
     # if label and sparkline are wider than the terminal width
     if [[ `cat $TMP_DIR/$1 | wc -l | awk '{print $1}'` -gt `expr $WIDTH-$LABELS-1` ]]; then
         mv $TMP_DIR/$1 $TMP_DIR/$1-old
@@ -24,7 +24,6 @@ graph() {
     echo $DATA | spark
     printf "$2" # no new line (print units after function call)
 }
-
 just_graph() {
     DATA=`cat $TMP_DIR/$1 | tr '\n' ' '`
     echo $DATA | spark
@@ -35,6 +34,8 @@ main() {
     JSON=`curl --silent https://mining.bitcoin.cz/accounts/profile/json/$API_KEY`
 
     HASHRATE_TIME_ELAPSED=$HASHRATE_REFRESH_TIME
+    RESET_HASHRATE_TIME=1
+
     mkdir $TMP_DIR # create data file directory
 
     # create data files
@@ -46,10 +47,10 @@ main() {
             if [[ "$LINE" == "last_share" || "$LINE" == "score" \
                 || "$LINE" == "alive" || "$LINE" == "worker_hashrate" \
                 || "$LINE" == "worker_shares" ]]; then
-                
+
                 # determine how many workers exist
                 DATA=`echo $JSON | jq -r '.workers' | jq -r .[].$LINE`
-                
+
                 # create a file for each worker
                 i=0
                 for ENTRY in $DATA; do
@@ -71,22 +72,25 @@ main() {
 
         printf "###########\n#  SPool  #   [^C] to stop.\n###########\n"
 
+        if [[ $HASHRATE_TIME_ELAPSED -ge $HASHRATE_REFRESH_TIME ]]; then
+            REFRESH_HASHRATE=1
+            HASHRATE_TIME_ELAPSED=0
+        fi
+
         # read config file
         cat $CONFIG_FILE | while read -r LINE || [ -n "$LINE" ]; do
             case $LINE in
                 # non-worker info
                 "hashrate"*) # total hashrate
-                    if [[ $HASHRATE_TIME_ELAPSED == $HASHRATE_REFRESH_TIME ]]; then
-                        printf "hashrate: "
+                    printf "hashrate: "
+                    if [[ $REFRESH_HASHRATE -eq 1 ]]; then
                         HASHRATE=`echo $JSON | jq -r .$LINE`
                         graph "hashrate" $HASHRATE
-                        printf " Mhash/s\n"
                     else
-                        printf "hashrate: "
                         HASHRATE=`echo $JSON | jq -r .$LINE`
                         just_graph "hashrate" $HASHRATE
-                        printf " Mhash/s\n"
                     fi
+                    printf " Mhash/s\n"
                 ;;
                 "username"|"rating"|"confirmed_nmc_reward"|"send_threshold"| \
                 "nmc_send_threshold"|"confirmed_reward"|"wallet"| \
@@ -121,11 +125,10 @@ main() {
                         i=`expr $i + 1`
                         if [[ "$LINE" == "worker_hashrate" ]]; then
                             printf "hashrate: "
-                            if [[ $HASHRATE_TIME_ELAPSED == $HASHRATE_REFRESH_TIME ]]; then 
+                            if [[ $REFRESH_HASHRATE -eq 1 ]]; then
                                 graph "$WORKER-worker_hashrate" $ENTRY
-                                HASHRATE_TIME_ELAPSED=0
+                                RESET_HASHRATE_TIME=1
                             else
-                                HASHRATE=`echo $JSON | jq -r .$LINE`
                                 just_graph "$WORKER-worker_hashrate" $ENTRY
                             fi
                             printf " Mhash/s\n"
@@ -147,6 +150,11 @@ main() {
             esac
         done
         sleep $SLEEP_TIME
+
+        if [[ $REFRESH_HASHRATE == 1 ]]; then
+            REFRESH_HASHRATE=0
+        fi
+
         HASHRATE_TIME_ELAPSED=`expr $HASHRATE_TIME_ELAPSED + $SLEEP_TIME`
     done
 }

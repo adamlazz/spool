@@ -1,6 +1,6 @@
 .DS_Store
 .git
 *.json
-.vagrant/
+*vagrant*
 config
 TODO.md
