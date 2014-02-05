@@ -6,7 +6,9 @@ Spool is a monitor for [Slush's Bitcoin Mining Pool][1]. It presents all availab
 
 Spool requires [`jq`][2] to parse the JSON API response and [`spark`][3] to generate bar graphs. Once `jq` and `spark` are installed, run the command to clone and install Spool:
 
-`git clone https://github.com/adamlazz/spool.git; cd spool; chmod +x spool.sh`
+```
+git clone https://github.com/adamlazz/spool.git; cd spool; chmod +x spool.sh
+```
 
 ## Configuration
 
