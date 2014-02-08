@@ -14,7 +14,7 @@ graph() {
     echo $2 >> $TMP_DIR/$1 # append latest API response to file
 
     # if label and sparkline are wider than the terminal width
-    if [[ `cat $TMP_DIR/$1 | wc -l | awk '{print $1}'` -gt `expr $WIDTH-$LABELS-1` ]]; then
+    if [ `cat $TMP_DIR/$1 | wc -l | awk '{print $1}'` -gt `expr $WIDTH-$LABELS-1` ]; then
         mv $TMP_DIR/$1 $TMP_DIR/$1-old
         touch $TMP_DIR/$1
         sed '1d' $TMP_DIR/$1-old >> $TMP_DIR/$1 # remove top line
@@ -40,13 +40,13 @@ main() {
 
     # create data files
     cat $CONFIG_FILE | while read -r LINE || [ -n "$LINE" ]; do
-        if [[ "$LINE" != "" && "$LINE" != "$API_KEY" \
-            && "$LINE" != "newline" ]]; then
+        if [ "$LINE" != "" && "$LINE" != "$API_KEY" \
+            && "$LINE" != "newline" ]; then
 
             # touch worker data files
-            if [[ "$LINE" == "last_share" || "$LINE" == "score" \
+            if [ "$LINE" == "last_share" || "$LINE" == "score" \
                 || "$LINE" == "alive" || "$LINE" == "worker_hashrate" \
-                || "$LINE" == "worker_shares" ]]; then
+                || "$LINE" == "worker_shares" ]; then
 
                 # determine how many workers exist
                 DATA=`echo $JSON | jq -r '.workers' | jq -r .[].$LINE`
@@ -66,13 +66,13 @@ main() {
         fi
     done
 
-    while [[ 1 ]]; do
+    while [ 1 ]; do
         JSON=`curl --silent https://mining.bitcoin.cz/accounts/profile/json/$API_KEY`
         clear
 
         printf "###########\n#  SPool  #   [^C] to stop.\n###########\n"
 
-        if [[ $HASHRATE_TIME_ELAPSED -ge $HASHRATE_REFRESH_TIME ]]; then
+        if [ $HASHRATE_TIME_ELAPSED -ge $HASHRATE_REFRESH_TIME ]; then
             REFRESH_HASHRATE=1
             HASHRATE_TIME_ELAPSED=0
         fi
@@ -83,7 +83,7 @@ main() {
                 # non-worker info
                 "hashrate"*) # total hashrate
                     printf "hashrate: "
-                    if [[ $REFRESH_HASHRATE -eq 1 ]]; then
+                    if [ $REFRESH_HASHRATE -eq 1 ]; then
                         HASHRATE=`echo $JSON | jq -r .$LINE`
                         graph "hashrate" $HASHRATE
                     else
@@ -123,9 +123,9 @@ main() {
                         WORKER=`echo $JSON | jq -r '.workers | keys['$i']'`
                         printf "$WORKER\n"
                         i=`expr $i + 1`
-                        if [[ "$LINE" == "worker_hashrate" ]]; then
+                        if [ "$LINE" == "worker_hashrate" ]; then
                             printf "hashrate: "
-                            if [[ $REFRESH_HASHRATE -eq 1 ]]; then
+                            if [ $REFRESH_HASHRATE -eq 1 ]; then
                                 graph "$WORKER-worker_hashrate" $ENTRY
                                 RESET_HASHRATE_TIME=1
                             else
@@ -151,7 +151,7 @@ main() {
         done
         sleep $SLEEP_TIME
 
-        if [[ $REFRESH_HASHRATE == 1 ]]; then
+        if [ $REFRESH_HASHRATE == 1 ]; then
             REFRESH_HASHRATE=0
         fi
 
@@ -168,7 +168,7 @@ SLEEP_TIME=300 # API refresh time (5min)
 WIDTH=`tput cols`
 LABELS=10 # spaces before sparklines begin
 
-if [[ -e $CONFIG_FILE ]]; then
+if [ -e $CONFIG_FILE ]; then
     main
 else
     echo "\033[31m$CONFIG_FILE does not exist.\033[0m"
