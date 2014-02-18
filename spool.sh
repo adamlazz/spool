@@ -14,7 +14,7 @@ graph() {
     echo $2 >> $TMP_DIR/$1 # append latest API response to file
 
     # if label and sparkline are wider than the terminal width
-    if [ `cat $TMP_DIR/$1 | wc -l | awk '{print $1}'` -gt `expr $WIDTH-$LABELS-1` ]; then
+    if [[ `cat $TMP_DIR/$1 | wc -l | awk '{print $1}'` -gt `expr $WIDTH-$LABELS-1` ]]; then
         mv $TMP_DIR/$1 $TMP_DIR/$1-old
         touch $TMP_DIR/$1
         sed '1d' $TMP_DIR/$1-old >> $TMP_DIR/$1 # remove top line
@@ -40,13 +40,13 @@ main() {
 
     # create data files
     cat $CONFIG_FILE | while read -r LINE || [ -n "$LINE" ]; do
-        if [ "$LINE" != "" && "$LINE" != "$API_KEY" \
-            && "$LINE" != "newline" ]; then
+        if [[ "$LINE" != "" && "$LINE" != "$API_KEY" \
+            && "$LINE" != "newline" ]]; then
 
             # touch worker data files
-            if [ "$LINE" == "last_share" || "$LINE" == "score" \
+            if [[ "$LINE" == "last_share" || "$LINE" == "score" \
                 || "$LINE" == "alive" || "$LINE" == "worker_hashrate" \
-                || "$LINE" == "worker_shares" ]; then
+                || "$LINE" == "worker_shares" ]]; then
 
                 # determine how many workers exist
                 DATA=`echo $JSON | jq -r '.workers' | jq -r .[].$LINE`
@@ -70,7 +70,7 @@ main() {
         JSON=`curl --silent https://mining.bitcoin.cz/accounts/profile/json/$API_KEY`
         clear
 
-        printf "###########\n#  SPool  #   [^C] to stop.\n###########\n"
+        printf "###########\n#  SPool  #   [Ctrl+C] to stop.\n###########\n"
 
         if [ $HASHRATE_TIME_ELAPSED -ge $HASHRATE_REFRESH_TIME ]; then
             REFRESH_HASHRATE=1
